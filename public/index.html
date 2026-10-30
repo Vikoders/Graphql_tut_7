@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Library</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Campus Library</h1>
+    <p>Explore authors and their books</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Authors and Books</h2>
+      <button id="loadAuthors">Load Authors</button>
+      <div id="authors"></div>
+    </section>
+
+    <section>
+      <h2>Add a Book</h2>
+      <form id="addBookForm">
+        <label for="title">Book title</label>
+        <input id="title" name="title" required>
+
+        <label for="year">Publication year</label>
+        <input id="year" name="year" type="number">
+
+        <label for="authorId">Author</label>
+        <select id="authorId" name="authorId" required>
+          <option value="">Select an author</option>
+          <option value="1">Anuj Gupta</option>
+          <option value="2">Kunal Shah</option>
+        </select>
+
+        <button type="submit">Add Book</button>
+      </form>
+      <p id="message" role="status"></p>
+    </section>
+  </main>
+
+  <script>
+    const API = 'http://localhost:4000/graphql';
+    const authorsContainer = document.getElementById('authors');
+    const message = document.getElementById('message');
+
+    async function graphqlRequest(query) {
+      const response = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.errors) {
+        throw new Error(
+          result.errors?.map(error => error.message).join(', ')
+          || 'Request failed'
+        );
+      }
+
+      return result.data;
+    }
+
+    async function loadAuthors() {
+      authorsContainer.textContent = 'Loading authors...';
+
+      try {
+        const data = await graphqlRequest(`
+          query {
+            authors {
+              id
+              name
+              country
+              books {
+                title
+                year
+              }
+            }
+          }
+        `);
+
+        authorsContainer.replaceChildren();
+
+        data.authors.forEach(author => {
+          const card = document.createElement('article');
+          const heading = document.createElement('h3');
+          heading.textContent = author.name;
+
+          const country = document.createElement('p');
+          country.textContent = `Country: ${author.country || 'Unknown'}`;
+
+          const list = document.createElement('ul');
+
+          author.books.forEach(book => {
+            const item = document.createElement('li');
+            item.textContent = `${book.title} (${book.year ?? 'Year unknown'})`;
+            list.appendChild(item);
+          });
+
+          card.append(heading, country, list);
+          authorsContainer.appendChild(card);
+        });
+      } catch (error) {
+        authorsContainer.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    document.getElementById('loadAuthors')
+      .addEventListener('click', loadAuthors);
+
+    document.getElementById('addBookForm')
+      .addEventListener('submit', async event => {
+        event.preventDefault();
+
+        const title = document.getElementById('title').value.trim();
+        const yearValue = document.getElementById('year').value;
+        const authorId = document.getElementById('authorId').value;
+
+        if (!title || !authorId) {
+          message.textContent = 'Please enter a title and select an author.';
+          return;
+        }
+
+        const yearArgument = yearValue
+          ? `, year: ${Number(yearValue)}`
+          : '';
+
+        const safeTitle = JSON.stringify(title);
+
+        const mutation = `
+          mutation {
+            addBook(
+              title: ${safeTitle}
+              ${yearArgument}
+              authorId: "${authorId}"
+            ) {
+              id
+              title
+              year
+            }
+          }
+        `;
+
+        try {
+          const data = await graphqlRequest(mutation);
+          message.textContent =
+            `Added "${data.addBook.title}" successfully.`;
+
+          event.target.reset();
+          await loadAuthors();
+        } catch (error) {
+          message.textContent = `Error: ${error.message}`;
+        }
+      });
+  </script>
+</body>
+</html>

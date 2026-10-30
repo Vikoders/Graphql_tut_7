@@ -1,0 +1,18 @@
+
+CREATE DATABASE IF NOT EXISTS gqldemo;
+
+USE gqldemo;
+
+CREATE TABLE IF NOT EXISTS authors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    country VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS books (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    year INT,
+    author_id INT NOT NULL,
+    FOREIGN KEY (author_id) REFERENCES authors(id)
+);
